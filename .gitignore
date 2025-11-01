@@ -30,3 +30,6 @@ ENV/
 
 # Generated outputs
 outputs/
+
+# Batch imports
+*.csv

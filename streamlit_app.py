@@ -636,9 +636,36 @@ def main() -> None:
     with st.sidebar:
         st.header("Настройки модели")
         st.caption("Загрузка схемы входных параметров модели для максимального покрытия настроек.")
-        with st.spinner("Загрузка схемы модели..."):
-            version_id = fetch_latest_version_id(settings.replicate_api_token)
-            openapi_schema = fetch_openapi_schema_for_version(version_id, settings.replicate_api_token) if version_id else None
+        # Кэширование схемы и версии модели в пределах сессии Streamlit
+        version_id = st.session_state.get("version_id")
+        openapi_schema = st.session_state.get("openapi_schema")
+
+        if not version_id or not openapi_schema:
+            with st.spinner("Загрузка схемы модели..."):
+                _version_id = fetch_latest_version_id(settings.replicate_api_token)
+                _openapi_schema = (
+                    fetch_openapi_schema_for_version(_version_id, settings.replicate_api_token)
+                    if _version_id
+                    else None
+                )
+            # Сохраняем в session_state только если успешно получили и версию, и схему
+            if _version_id and _openapi_schema:
+                st.session_state["version_id"] = _version_id
+                st.session_state["openapi_schema"] = _openapi_schema
+                version_id, openapi_schema = _version_id, _openapi_schema
+            else:
+                # Покажем то, что смогли получить (возможно None)
+                version_id, openapi_schema = _version_id, _openapi_schema
+
+        # Кнопка для ручного обновления (очистка кэша)
+        if st.button(
+            "Обновить схему",
+            help="Принудительно перезагрузить схему модели из API (очистить кэш на время текущей сессии)",
+        ):
+            st.session_state.pop("version_id", None)
+            st.session_state.pop("openapi_schema", None)
+            st.experimental_rerun()
+
         if version_id:
             st.success(f"Версия модели: {version_id[:8]}…")
         else:
